@@ -48,18 +48,18 @@ fn main() {
     println!("Count: {}", count);
 
     let mut count = 0;
-    let mut sources = m.keys().filter(|k| k.ends_with("A")).cloned().collect::<Vec<_>>();
+    let mut sources = m.keys().filter(|k| k.ends_with("A")).collect::<Vec<_>>();
     loop {
         let d = directions.chars().nth(count % directions.len()).unwrap();
         for i in 0..sources.len() {
-            let mut source = sources.get(i).unwrap().clone();
-            let (left, right) = m.get(&source).unwrap();
+            let mut source = *sources.get(i).unwrap();
+            let (left, right) = m.get(source).unwrap();
             match d {
                 'L' => {
-                    source = left.clone();
+                    source = left;
                 }
                 'R' => {
-                    source = right.clone();
+                    source = right;
                 }
                 _ => panic!("Unknown direction")
             }
