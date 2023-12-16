@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{self, BufRead},
 };
+use rayon::prelude::*;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum Spring {
@@ -58,20 +59,20 @@ fn spring_ok(left: &[Spring], right: &[usize], missing_damaged: usize) -> bool {
             .map(|x| x.len())
             .filter(|x| *x > 0)
             .collect::<Vec<_>>();
-        prefix.len() <= right.len() && prefix.iter().zip(right.iter()).all(|(x, y)| *x <= *y)
+
+        prefix.len() <= right.len() &&
+        (0..prefix.len()-1).all(|i| {
+            prefix.get(i) == right.get(i)
+        }) &&
+        prefix.get(prefix.len()-1) <= right.get(prefix.len()-1)
     }
 }
 
 // There are still missing_damaged damaged springs
-// There are still num_unknown unknown elements
 // I try to put the next damaged (and call recursively)
 fn process_spring_rec(left: &[Spring], right: &[usize], missing_damaged: usize) -> usize {
     let mut res = 0;
     let num_unknown = left.iter().filter(|c| **c == Spring::U).count();
-
-    if missing_damaged == 0 {
-        return 1;
-    }
 
     for i in 0..num_unknown {
         let mut left = left.to_owned();
@@ -100,7 +101,13 @@ fn process_spring(left: &[Spring], right: &[usize]) -> usize {
     let current_damaged = left.iter().filter(|c| **c == Spring::D).count();
     let expected_damaged = right.iter().sum::<usize>();
     let missing_damaged = expected_damaged - current_damaged;
-    let res = process_spring_rec(left, right, missing_damaged);
+
+    let res = if missing_damaged == 0 { 
+        1
+    } else {
+        process_spring_rec(left, right, missing_damaged)
+    };
+
     println!(">> {}", res);
     res
 }
@@ -118,11 +125,13 @@ fn main() {
 
     // Second part
     let sum = input
-        .iter()
+        .par_iter()
         .map(|(left, right)| {
             let mut left = left.clone();
             left.push(Spring::U);
-            (left.repeat(5), right.repeat(5))
+            left = left.repeat(5);
+            left.pop();
+            (left, right.repeat(5))
         })
         .map(|(left, right)| process_spring(&left, &right))
         .sum::<usize>();
