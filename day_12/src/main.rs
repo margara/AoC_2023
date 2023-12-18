@@ -1,8 +1,8 @@
-use rayon::{iter::ParallelIterator, prelude::*};
+use rayon::{iter::{ParallelIterator}, prelude::*};
 use std::{
     fs::File,
     io::{self, BufRead},
-    usize,
+    usize, cell::RefCell, collections::HashMap,
 };
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -75,29 +75,49 @@ fn generate_pattern(generated: &[usize], right: &[usize]) -> Vec<Spring> {
     res
 }
 
+fn generate_sets_memo(remaining_ops: usize, remaining_groups: usize, memo: &RefCell<HashMap<(usize, usize), Vec<Vec<usize>>>>) -> Vec<Vec<usize>> {
+    if remaining_groups == 1 {
+        if !memo.borrow().contains_key(&(remaining_ops, remaining_groups)) {
+            let next = (0..remaining_ops+1).map(|ops| vec![ops]).collect::<Vec<_>>();
+            memo.borrow_mut().insert((remaining_ops, remaining_groups), next);
+        }
+        let map = memo.borrow();
+        map.get(&(remaining_ops, remaining_groups)).unwrap().clone()
+    } else {
+        (0..remaining_ops+1).flat_map(|ops| {
+            if !memo.borrow().contains_key(&(remaining_ops, remaining_groups)) {
+                let next = generate_sets_memo(remaining_ops - ops, remaining_groups - 1, memo);
+                memo.borrow_mut().insert((remaining_ops, remaining_groups), next);
+            }
+            let map = memo.borrow();
+            let next = map.get(&(remaining_ops, remaining_groups)).unwrap();
+            next.iter().map(|n| {
+                let mut n = n.clone();
+                n.push(ops);
+                n
+            }).collect::<Vec<_>>()
+        }).collect()
+    }
+}
+
 fn generate_sets(
     current_group: usize,
     total_groups: usize,
     remaining_ops: usize,
-    current: Vec<usize>,
+    current: &Vec<usize>,
 ) -> Vec<Vec<usize>> {
-    let next = (0..remaining_ops + 1)
-        .map(|ops| {
+    (0..remaining_ops + 1)
+        .flat_map(|ops| {
             let mut current = current.clone();
             current.push(ops);
-            (remaining_ops - ops, current)
+            let remaining_ops = remaining_ops - ops;
+            if current_group == total_groups - 1 {
+                vec![current]
+            } else {
+                generate_sets(current_group + 1, total_groups, remaining_ops, &current)
+            }
         })
-        .collect::<Vec<_>>();
-
-    if current_group == total_groups - 1 {
-        next.into_iter().map(|(_, v)| v).collect::<Vec<_>>()
-    } else {
-        next.into_iter()
-            .flat_map(|(remaining_ops, v)| {
-                generate_sets(current_group + 1, total_groups, remaining_ops, v)
-            })
-            .collect::<Vec<_>>()
-    }
+        .collect::<Vec<_>>()
 }
 
 fn process_spring(left: &[Spring], right: &[usize]) -> usize {
@@ -106,8 +126,12 @@ fn process_spring(left: &[Spring], right: &[usize]) -> usize {
     let num_damaged = right.iter().sum::<usize>();
     let ops_to_add = left_len - num_damaged - (right.len() - 1);
 
-    let sets = generate_sets(0, num_operational_groups, ops_to_add, Vec::new());
-    let res = sets.into_iter()
+    let memo = RefCell::new(HashMap::new());
+
+    let sets = generate_sets_memo(ops_to_add, num_operational_groups, &memo);
+    // let sets = generate_sets(0, num_operational_groups, ops_to_add, &Vec::new());
+    let res = sets
+        .into_iter()
         .map(|s| generate_pattern(&s, right))
         .filter(|p| is_compatible(p, left))
         .count();
@@ -129,7 +153,7 @@ fn main() {
 
     // Second part
     let sum = input
-        .par_iter()
+        .iter()
         .map(|(left, right)| {
             let mut left = left.clone();
             left.push(Spring::U);
