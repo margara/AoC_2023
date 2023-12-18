@@ -1,8 +1,9 @@
+use rayon::{iter::ParallelIterator, prelude::*};
 use std::{
     fs::File,
     io::{self, BufRead},
+    usize,
 };
-use rayon::prelude::*;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum Spring {
@@ -42,54 +43,31 @@ fn parse_input() -> Vec<(Vec<Spring>, Vec<usize>)> {
         .collect::<Vec<_>>()
 }
 
-fn spring_ok(left: &[Spring], right: &[usize], missing_damaged: usize) -> bool {
-    if missing_damaged == 0 {
-        let mut left = left.to_owned();
-        left.iter_mut()
-            .filter(|s| **s == Spring::U)
-            .for_each(|s| *s = Spring::O);
-        let left = left.split(|el| *el == Spring::O);
-        let left = left.map(|x| x.len()).filter(|x| *x > 0).collect::<Vec<_>>();
-        left == right
-    } else {
-        let mut it = left.split(|el| *el == Spring::U);
-        let prefix = it.next().unwrap();
-        let prefix = prefix.split(|el| *el == Spring::O);
-        let prefix = prefix
-            .map(|x| x.len())
-            .filter(|x| *x > 0)
-            .collect::<Vec<_>>();
-
-        prefix.len() <= right.len() &&
-        (0..prefix.len()-1).all(|i| {
-            prefix.get(i) == right.get(i)
-        }) &&
-        prefix.get(prefix.len()-1) <= right.get(prefix.len()-1)
+fn is_compatible(generated_pattern: &[Spring], left: &[Spring]) -> bool {
+    if generated_pattern.len() != left.len() {
+        return false;
     }
+
+    for i in 0..generated_pattern.len() {
+        if left[i] != Spring::U && left[i] != generated_pattern[i] {
+            return false;
+        }
+    }
+    true
 }
 
-// There are still missing_damaged damaged springs
-// I try to put the next damaged (and call recursively)
-fn process_spring_rec(left: &[Spring], right: &[usize], missing_damaged: usize) -> usize {
-    let mut res = 0;
-    let num_unknown = left.iter().filter(|c| **c == Spring::U).count();
-
-    for i in 0..num_unknown {
-        let mut left = left.to_owned();
-        left.iter_mut()
-            .filter(|s| **s == Spring::U)
-            .take(i + 1)
-            .enumerate()
-            .for_each(|(c, s)| {
-                *s = if c == i { Spring::D } else { Spring::O };
-            });
-
-        let missing_damaged = missing_damaged - 1;
-        if spring_ok(&left, &right, missing_damaged) {
-            if missing_damaged == 0 {
-                res += 1;
-            } else {
-                res += process_spring_rec(&left, &right, missing_damaged);
+fn generate_pattern(generated: &[usize], right: &[usize]) -> Vec<Spring> {
+    let mut res = Vec::new();
+    for i in 0..generated.len() {
+        for _o in 0..generated[i] {
+            res.push(Spring::O);
+        }
+        if i != 0 && i != generated.len() - 1 {
+            res.push(Spring::O);
+        }
+        if i != generated.len() - 1 {
+            for _d in 0..right[i] {
+                res.push(Spring::D);
             }
         }
     }
@@ -97,16 +75,42 @@ fn process_spring_rec(left: &[Spring], right: &[usize], missing_damaged: usize) 
     res
 }
 
-fn process_spring(left: &[Spring], right: &[usize]) -> usize {
-    let current_damaged = left.iter().filter(|c| **c == Spring::D).count();
-    let expected_damaged = right.iter().sum::<usize>();
-    let missing_damaged = expected_damaged - current_damaged;
+fn generate_sets(
+    current_group: usize,
+    total_groups: usize,
+    remaining_ops: usize,
+    current: Vec<usize>,
+) -> Vec<Vec<usize>> {
+    let next = (0..remaining_ops + 1)
+        .map(|ops| {
+            let mut current = current.clone();
+            current.push(ops);
+            (remaining_ops - ops, current)
+        })
+        .collect::<Vec<_>>();
 
-    let res = if missing_damaged == 0 { 
-        1
+    if current_group == total_groups - 1 {
+        next.into_iter().map(|(_, v)| v).collect::<Vec<_>>()
     } else {
-        process_spring_rec(left, right, missing_damaged)
-    };
+        next.into_iter()
+            .flat_map(|(remaining_ops, v)| {
+                generate_sets(current_group + 1, total_groups, remaining_ops, v)
+            })
+            .collect::<Vec<_>>()
+    }
+}
+
+fn process_spring(left: &[Spring], right: &[usize]) -> usize {
+    let num_operational_groups = right.len() + 1;
+    let left_len = left.len();
+    let num_damaged = right.iter().sum::<usize>();
+    let ops_to_add = left_len - num_damaged - (right.len() - 1);
+
+    let sets = generate_sets(0, num_operational_groups, ops_to_add, Vec::new());
+    let res = sets.into_iter()
+        .map(|s| generate_pattern(&s, right))
+        .filter(|p| is_compatible(p, left))
+        .count();
 
     println!(">> {}", res);
     res
