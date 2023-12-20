@@ -1,7 +1,7 @@
 use std::{
     fmt::{Display, Write},
     fs::File,
-    io::{self, BufRead}, collections::{HashSet, HashMap},
+    io::{self, BufRead}, collections::HashMap,
 };
 
 #[derive(Hash, PartialEq, Eq, Clone)]
