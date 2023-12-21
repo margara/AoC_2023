@@ -47,194 +47,140 @@ impl Path {
         }
     }
 
-    fn move_up(&self, world: &World, res: &mut Vec<Path>, best: &mut HashMap<Pos, usize>) {
-        if self.pos.row > 0 {
-            let cost = self.cost + world.map[self.pos.row - 1][self.pos.col];
-            let row = self.pos.row - 1;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::U, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
+    fn move_up(
+        &self,
+        world: &World,
+        res: &mut Vec<Path>,
+        best: &mut HashMap<Pos, usize>,
+        min_moves: usize,
+        max_moves: usize,
+    ) {
+        (min_moves..max_moves + 1).for_each(|i| {
+            if self.pos.row >= i {
+                let cost = self.cost
+                    + (1..i + 1)
+                        .map(|j| world.map[self.pos.row - j][self.pos.col])
+                        .sum::<usize>();
+                let row = self.pos.row - i;
+                let col = self.pos.col;
+                let path = Path::new(row, col, Dir::U, cost);
+                let old_cost = best.get(&path.pos);
+                if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
+                    best.insert(path.pos, path.cost);
+                    res.push(path);
+                }
             }
-        }
-        if self.pos.row > 1 {
-            let cost = self.cost
-                + world.map[self.pos.row - 1][self.pos.col]
-                + world.map[self.pos.row - 2][self.pos.col];
-            let row = self.pos.row - 2;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::U, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
-        if self.pos.row > 2 {
-            let cost = self.cost
-                + world.map[self.pos.row - 1][self.pos.col]
-                + world.map[self.pos.row - 2][self.pos.col]
-                + world.map[self.pos.row - 3][self.pos.col];
-            let row = self.pos.row - 3;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::U, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
+        });
     }
 
-    fn move_down(&self, world: &World, res: &mut Vec<Path>, best: &mut HashMap<Pos, usize>) {
-        if self.pos.row < world.rows - 1 {
-            let cost = self.cost + world.map[self.pos.row + 1][self.pos.col];
-            let row = self.pos.row + 1;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::D, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
+    fn move_down(
+        &self,
+        world: &World,
+        res: &mut Vec<Path>,
+        best: &mut HashMap<Pos, usize>,
+        min_moves: usize,
+        max_moves: usize,
+    ) {
+        (min_moves..max_moves + 1).for_each(|i| {
+            if self.pos.row < world.rows - i {
+                let cost = self.cost
+                    + (1..i + 1)
+                        .map(|j| world.map[self.pos.row + j][self.pos.col])
+                        .sum::<usize>();
+                let row = self.pos.row + i;
+                let col = self.pos.col;
+                let path = Path::new(row, col, Dir::D, cost);
+                let old_cost = best.get(&path.pos);
+                if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
+                    best.insert(path.pos, path.cost);
+                    res.push(path);
+                }
             }
-        }
-        if self.pos.row < world.rows - 2 {
-            let cost = self.cost
-                + world.map[self.pos.row + 1][self.pos.col]
-                + world.map[self.pos.row + 2][self.pos.col];
-            let row = self.pos.row + 2;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::D, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
-        if self.pos.row < world.rows - 3 {
-            let cost = self.cost
-                + world.map[self.pos.row + 1][self.pos.col]
-                + world.map[self.pos.row + 2][self.pos.col]
-                + world.map[self.pos.row + 3][self.pos.col];
-            let row = self.pos.row + 3;
-            let col = self.pos.col;
-            let path = Path::new(row, col, Dir::D, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
+        });
     }
 
-    fn move_left(&self, world: &World, res: &mut Vec<Path>, best: &mut HashMap<Pos, usize>) {
-        if self.pos.col > 0 {
-            let cost = self.cost + world.map[self.pos.row][self.pos.col - 1];
-            let row = self.pos.row;
-            let col = self.pos.col - 1;
-            let path = Path::new(row, col, Dir::L, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
+    fn move_left(
+        &self,
+        world: &World,
+        res: &mut Vec<Path>,
+        best: &mut HashMap<Pos, usize>,
+        min_moves: usize,
+        max_moves: usize,
+    ) {
+        (min_moves..max_moves + 1).for_each(|i| {
+            if self.pos.col >= i {
+                let cost = self.cost
+                    + (1..i + 1)
+                        .map(|j| world.map[self.pos.row][self.pos.col - j])
+                        .sum::<usize>();
+                let row = self.pos.row;
+                let col = self.pos.col - i;
+                let path = Path::new(row, col, Dir::L, cost);
+                let old_cost = best.get(&path.pos);
+                if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
+                    best.insert(path.pos, path.cost);
+                    res.push(path);
+                }
             }
-        }
-        if self.pos.col > 1 {
-            let cost = self.cost
-                + world.map[self.pos.row][self.pos.col - 1]
-                + world.map[self.pos.row][self.pos.col - 2];
-            let row = self.pos.row;
-            let col = self.pos.col - 2;
-            let path = Path::new(row, col, Dir::L, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
-        if self.pos.col > 2 {
-            let cost = self.cost
-                + world.map[self.pos.row][self.pos.col - 1]
-                + world.map[self.pos.row][self.pos.col - 2]
-                + world.map[self.pos.row][self.pos.col - 3];
-            let row = self.pos.row;
-            let col = self.pos.col - 3;
-            let path = Path::new(row, col, Dir::L, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
+        });
     }
 
-    fn move_right(&self, world: &World, res: &mut Vec<Path>, best: &mut HashMap<Pos, usize>) {
-        if self.pos.col < world.cols - 1 {
-            let cost = self.cost + world.map[self.pos.row][self.pos.col + 1];
-            let row = self.pos.row;
-            let col = self.pos.col + 1;
-            let path = Path::new(row, col, Dir::R, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
+    fn move_right(
+        &self,
+        world: &World,
+        res: &mut Vec<Path>,
+        best: &mut HashMap<Pos, usize>,
+        min_moves: usize,
+        max_moves: usize,
+    ) {
+        (min_moves..max_moves + 1).for_each(|i| {
+            if self.pos.col < world.cols - i {
+                let cost = self.cost
+                    + (1..i + 1)
+                        .map(|j| world.map[self.pos.row][self.pos.col + j])
+                        .sum::<usize>();
+                let row = self.pos.row;
+                let col = self.pos.col + i;
+                let path = Path::new(row, col, Dir::R, cost);
+                let old_cost = best.get(&path.pos);
+                if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
+                    best.insert(path.pos, path.cost);
+                    res.push(path);
+                }
             }
-        }
-        if self.pos.col < world.cols - 2 {
-            let cost = self.cost
-                + world.map[self.pos.row][self.pos.col + 1]
-                + world.map[self.pos.row][self.pos.col + 2];
-            let row = self.pos.row;
-            let col = self.pos.col + 2;
-            let path = Path::new(row, col, Dir::R, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
-        if self.pos.col < world.cols - 3 {
-            let cost = self.cost
-                + world.map[self.pos.row][self.pos.col + 1]
-                + world.map[self.pos.row][self.pos.col + 2]
-                + world.map[self.pos.row][self.pos.col + 3];
-            let row = self.pos.row;
-            let col = self.pos.col + 3;
-            let path = Path::new(row, col, Dir::R, cost);
-            let old_cost = best.get(&path.pos);
-            if old_cost.is_none() || old_cost.is_some_and(|old| *old > cost) {
-                best.insert(path.pos, path.cost);
-                res.push(path);
-            }
-        }
+        });
     }
 
-    fn make_moves(&self, world: &World, best: &mut HashMap<Pos, usize>) -> Vec<Path> {
+    fn make_moves(
+        &self,
+        world: &World,
+        best: &mut HashMap<Pos, usize>,
+        min_moves: usize,
+        max_moves: usize,
+    ) -> Vec<Path> {
         let mut res = Vec::new();
         let dir = self.pos.dir;
         match dir {
             Dir::U | Dir::D => {
-                self.move_left(world, &mut res, best);
-                self.move_right(world, &mut res, best);
+                self.move_left(world, &mut res, best, min_moves, max_moves);
+                self.move_right(world, &mut res, best, min_moves, max_moves);
             }
             Dir::L | Dir::R => {
-                self.move_up(world, &mut res, best);
-                self.move_down(world, &mut res, best);
+                self.move_up(world, &mut res, best, min_moves, max_moves);
+                self.move_down(world, &mut res, best, min_moves, max_moves);
             }
         }
         res
     }
 }
 
-fn shortest_path(world: &World) -> usize {
+fn shortest_path(world: &World, min_moves: usize, max_moves: usize) -> usize {
     let p1 = Path::new(0, 0, Dir::R, 0);
     let p2 = Path::new(0, 0, Dir::D, 0);
     let mut paths = vec![p1, p2];
     let mut best = HashMap::new();
     loop {
-        paths = next_paths(&paths, world, &mut best);
+        paths = next_paths(&paths, world, &mut best, min_moves, max_moves);
         if paths.is_empty() {
             break;
         }
@@ -247,10 +193,16 @@ fn shortest_path(world: &World) -> usize {
         .unwrap()
 }
 
-fn next_paths(paths: &[Path], world: &World, best: &mut HashMap<Pos, usize>) -> Vec<Path> {
+fn next_paths(
+    paths: &[Path],
+    world: &World,
+    best: &mut HashMap<Pos, usize>,
+    min_moves: usize,
+    max_moves: usize,
+) -> Vec<Path> {
     paths
         .into_iter()
-        .flat_map(|path| path.make_moves(world, best))
+        .flat_map(|path| path.make_moves(world, best, min_moves, max_moves))
         .collect()
 }
 
@@ -272,6 +224,10 @@ fn main() {
     let world = parse_input();
 
     // First part
-    let shortest_path = shortest_path(&world);
-    println!("Shortest path: {}", shortest_path);
+    let res = shortest_path(&world, 1, 3);
+    println!("Shortest path: {}", res);
+
+    // Second part
+    let res = shortest_path(&world, 4, 10);
+    println!("Shortest path: {}", res);
 }
