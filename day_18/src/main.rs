@@ -83,7 +83,7 @@ fn parse_input() -> Plan {
 }
 
 fn parse_input2() -> Plan {
-    let f = File::open("input/input_example.txt").unwrap();
+    let f = File::open("input/input.txt").unwrap();
     let lines = io::BufReader::new(f).lines();
     let commands = lines
         .map(|line| {
@@ -212,16 +212,43 @@ fn fill(border: &[(i64, i64, Turn)]) -> usize {
     count
 }
 
+fn shoelace_formula(plan: &Plan) -> i64 {
+    let mut vertices = Vec::new();
+    let mut current = (0, 0);
+    vertices.push(current.clone());
+    plan.commands.iter().for_each(|c| {
+        match c.dir {
+            Dir::North => { current.0 -= c.len; },
+            Dir::South => { current.0 += c.len; },
+            Dir::West => { current.1 -= c.len; },
+            Dir::East => { current.1 += c.len; },
+        }
+        vertices.push(current.clone());
+    });
+
+    let border = plan.commands.iter().map(|c| c.len).sum::<i64>();
+
+    let area = (1..vertices.len()).map(|i| {
+        let prev = vertices[i-1];
+        let curr = vertices[i];
+        let next = vertices[(i+1) % vertices.len()];
+        
+        curr.0 * (prev.1 - next.1)
+    }).sum::<i64>() / 2;
+
+    area + border / 2 + 1
+}
+
 fn main() {
     // First part
     let plan = parse_input();
     let border = compute_border(&plan);
+    println!("Border: {}", border.len());
     let total = fill(&border);
-    println!("Border: {}; total: {}", border.len(), total);
+    println!("Total: {}", total);
 
     // Second part
     let plan = parse_input2();
-    let border = compute_border(&plan);
-    let total = fill(&border);
-    println!("Border: {}; total: {}", border.len(), total);
+    let area = shoelace_formula(&plan);
+    println!("Area: {}", area);
 }
