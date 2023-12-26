@@ -215,7 +215,7 @@ impl System {
         (num_low_signals, num_high_signals)
     }
 
-    fn push_button2(&mut self) -> bool {
+    fn push_button2(&mut self, i: usize) {
         let mut signals = vec![SignalPropagation::new(
             Signal::L,
             String::from("button"),
@@ -223,6 +223,11 @@ impl System {
         )];
 
         loop {
+            signals
+                .iter()
+                .filter(|s| s.receiver == "kc" && s.signal == Signal::H)
+                .for_each(|s| println!("{}: {:?}", i, s));
+
             signals = signals
                 .into_iter()
                 .flat_map(|signal_propagation| {
@@ -252,12 +257,8 @@ impl System {
 
             if signals.is_empty() {
                 break;
-            } else if signals.iter().any(|s| s.receiver == "rx" && s.signal == Signal::L) {
-                return true;
             }
         }
-
-        false
     }
 }
 
@@ -322,20 +323,18 @@ fn main() {
         .map(|_| system.push_button())
         .reduce(|acc, el| (acc.0 + el.0, acc.1 + el.1))
         .unwrap();
-    println!("Num signals (L, H, Prod): {} {} {}", num_low, num_high, num_low*num_high);
+    println!(
+        "Num signals (L, H, Prod): {} {} {}",
+        num_low,
+        num_high,
+        num_low * num_high
+    );
 
-    // Part two
+    // Part two TODO
     let mut system = parse_input();
     let mut i: usize = 1;
     loop {
-        if i % 1_000_000 == 0 {
-            println!("Iteration: {}", i);
-        }
-        let res = system.push_button2();
-        if res {
-            println!("Found after {}", i);
-            break;
-        }
+        system.push_button2(i);
         i += 1;
     }
 }
