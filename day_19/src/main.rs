@@ -4,7 +4,7 @@ use std::{
     io::{self, BufRead},
 };
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 enum Cat {
     X,
     M,
@@ -29,6 +29,90 @@ impl Part {
 
     fn rating(&self) -> usize {
         self.attrs.values().sum::<usize>()
+    }
+}
+
+#[derive(Clone)]
+struct SymbolicPart {
+    attrs_min: HashMap<Cat, usize>,
+    attrs_max: HashMap<Cat, usize>,
+}
+
+impl SymbolicPart {
+    fn new() -> Self {
+        let attrs_min = vec![(Cat::X, 1), (Cat::M, 1), (Cat::A, 1), (Cat::S, 1)]
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        let attrs_max = vec![
+            (Cat::X, 4000),
+            (Cat::M, 4000),
+            (Cat::A, 4000),
+            (Cat::S, 4000),
+        ]
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+        Self {
+            attrs_min,
+            attrs_max,
+        }
+    }
+
+    fn process_constraint_if(&mut self, constraint: &Constraint) {
+        match constraint.op {
+            Op::GT => {
+                let val = self.attrs_min.get_mut(&constraint.cat).unwrap();
+                *val = if *val > constraint.val + 1 {
+                    *val
+                } else {
+                    constraint.val + 1
+                };
+            }
+            Op::LT => {
+                let val = self.attrs_max.get_mut(&constraint.cat).unwrap();
+                *val = if *val < constraint.val - 1 {
+                    *val
+                } else {
+                    constraint.val - 1
+                };
+            }
+        }
+    }
+
+    fn process_constraint_else(&mut self, constraint: &Constraint) {
+        match constraint.op {
+            Op::GT => {
+                let val = self.attrs_max.get_mut(&constraint.cat).unwrap();
+                *val = if *val < constraint.val {
+                    *val
+                } else {
+                    constraint.val
+                };
+            }
+            Op::LT => {
+                let val = self.attrs_min.get_mut(&constraint.cat).unwrap();
+                *val = if *val > constraint.val {
+                    *val
+                } else {
+                    constraint.val
+                };
+            }
+        }
+    }
+
+    fn is_unsatisfiable(&self) -> bool {
+        self.attrs_min
+            .iter()
+            .any(|(cat, min_val)| self.attrs_max.get(&cat).unwrap() < min_val)
+    }
+
+    fn combinations(&self) -> usize {
+        self.attrs_min
+            .iter()
+            .map(|(cat, min_val)| {
+                let max_val = self.attrs_max.get(&cat).unwrap();
+                max_val - min_val + 1
+            })
+            .product()
     }
 }
 
@@ -128,6 +212,64 @@ impl System {
             }
         }
     }
+
+    fn find_accepted_parts(&self) -> Vec<SymbolicPart> {
+        let init_workflow = self.workflows.get("in").unwrap();
+        let init_pos = 0;
+        let init_part = SymbolicPart::new();
+        let mut symbolic_parts = vec![(init_workflow, init_pos, init_part)];
+        let mut accepted = Vec::new();
+        loop {
+            symbolic_parts = symbolic_parts
+                .iter()
+                .flat_map(|(workflow, pos, part)| {
+                    let rule = workflow.rules.get(*pos).unwrap();
+                    let mut new_parts = Vec::new();
+                    match rule {
+                        Rule::Constraint(c) => {
+                            let mut if_part = part.clone();
+                            if_part.process_constraint_if(&c);
+                            if !if_part.is_unsatisfiable() {
+                                match &c.target {
+                                    Target::Accept => {
+                                        accepted.push(if_part);
+                                    }
+                                    Target::Reject => {}
+                                    Target::Workflow(w) => {
+                                        let w = self.workflows.get(w).unwrap();
+                                        new_parts.push((w, 0, if_part));
+                                    }
+                                }
+                            }
+                            let mut else_part = part.clone();
+                            else_part.process_constraint_else(&c);
+                            if !else_part.is_unsatisfiable() {
+                                new_parts.push((workflow, pos + 1, else_part));
+                            }
+                        }
+                        Rule::Target(t) => match t {
+                            Target::Accept => {
+                                accepted.push(part.to_owned());
+                            }
+                            Target::Reject => {}
+                            Target::Workflow(w) => {
+                                let w = self.workflows.get(w).unwrap();
+                                new_parts.push((w, 0, part.to_owned()));
+                            }
+                        },
+                    }
+
+                    new_parts
+                })
+                .collect::<Vec<_>>();
+
+            if symbolic_parts.is_empty() {
+                break;
+            }
+        }
+
+        accepted
+    }
 }
 
 fn parse_input() -> (System, Vec<Part>) {
@@ -221,6 +363,14 @@ fn main() {
         .iter()
         .filter(|part| system.process_part("in", part))
         .map(|part| part.rating())
+        .sum::<usize>();
+    println!("Sum: {}", sum);
+
+    // Second part
+    let sum = system
+        .find_accepted_parts()
+        .iter()
+        .map(|part| part.combinations())
         .sum::<usize>();
     println!("Sum: {}", sum);
 }
