@@ -1,11 +1,9 @@
 use bit_set::BitSet;
 use itertools::Itertools;
-use rayon::prelude::*;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{self, BufRead},
-    sync::Mutex,
 };
 
 #[derive(PartialEq, Eq)]
@@ -132,43 +130,33 @@ impl Path {
 }
 
 fn find_longest_path(map: &Map) -> usize {
-    let mut paths = HashSet::new();
-    paths.insert(Path::new());
-    let longest = Mutex::new(0);
+    let mut paths = vec![Path::new()];
+    let mut longest = 0;
 
-    let mut iter = 0;
     loop {
-        if iter % 100 == 0 {
-            println!("Iteration: {}, paths: {}, current longest: {}", iter, paths.len(), *longest.lock().unwrap());
-        }
-        iter += 1;
-        let new_paths = paths
-            .par_iter()
-            .flat_map(|path| {
-                map.cells[path.last]
-                    .adjacents
-                    .iter()
-                    .filter(|cell| !path.visited.contains(**cell))
-                    .map(|&cell| {
-                        let new_path = path.extend(cell);
-                        if cell == map.cells.len() - 1 {
-                            *longest.lock().unwrap() = new_path.visited.len();
-                        }
-                        new_path
-                    })
-                    .collect::<HashSet<_>>()
-            })
-            .collect::<HashSet<_>>();
-
-        if new_paths.is_empty() {
+        if paths.is_empty() {
             break;
-        } else {
-            paths = new_paths;
         }
+
+        let path = paths.pop().unwrap();
+        map.cells[path.last]
+            .adjacents
+            .iter()
+            .filter(|cell| !path.visited.contains(**cell))
+            .map(|&cell| {
+                let new_path = path.extend(cell);
+                if cell == map.cells.len() - 1 && new_path.visited.len() > longest {
+                    longest = new_path.visited.len();
+                    println!("New longest {}", longest - 1);
+                }
+                new_path
+            })
+            .for_each(|new_path| {
+                paths.push(new_path);
+            });
     }
 
-    let res = *longest.lock().unwrap() - 1;
-    res
+    longest - 1
 }
 
 fn parse_input() -> Vec<Vec<Option<AllowedDirs>>> {
